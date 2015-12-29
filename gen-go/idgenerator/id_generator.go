@@ -21,6 +21,7 @@ type IdGenerator interface {
 	//  - Scope
 	GetId(scope string) (r int64, err error)
 	GetDatacenterId() (r int64, err error)
+	GetScopes() (r []string, err error)
 }
 
 type IdGeneratorClient struct {
@@ -276,6 +277,62 @@ func (p *IdGeneratorClient) recvGetDatacenterId() (value int64, err error) {
 	return
 }
 
+func (p *IdGeneratorClient) GetScopes() (r []string, err error) {
+	if err = p.sendGetScopes(); err != nil {
+		return
+	}
+	return p.recvGetScopes()
+}
+
+func (p *IdGeneratorClient) sendGetScopes() (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	oprot.WriteMessageBegin("get_scopes", thrift.CALL, p.SeqId)
+	args16 := NewGetScopesArgs()
+	err = args16.Write(oprot)
+	oprot.WriteMessageEnd()
+	oprot.Flush()
+	return
+}
+
+func (p *IdGeneratorClient) recvGetScopes() (value []string, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	_, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error18 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error19 error
+		error19, err = error18.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error19
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "ping failed: out of sequence response")
+		return
+	}
+	result17 := NewGetScopesResult()
+	err = result17.Read(iprot)
+	iprot.ReadMessageEnd()
+	value = result17.Success
+	return
+}
+
 type IdGeneratorProcessor struct {
 	processorMap map[string]thrift.TProcessorFunction
 	handler      IdGenerator
@@ -296,12 +353,13 @@ func (p *IdGeneratorProcessor) ProcessorMap() map[string]thrift.TProcessorFuncti
 
 func NewIdGeneratorProcessor(handler IdGenerator) *IdGeneratorProcessor {
 
-	self16 := &IdGeneratorProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
-	self16.processorMap["get_worker_id"] = &idGeneratorProcessorGetWorkerId{handler: handler}
-	self16.processorMap["get_timestamp"] = &idGeneratorProcessorGetTimestamp{handler: handler}
-	self16.processorMap["get_id"] = &idGeneratorProcessorGetId{handler: handler}
-	self16.processorMap["get_datacenter_id"] = &idGeneratorProcessorGetDatacenterId{handler: handler}
-	return self16
+	self20 := &IdGeneratorProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
+	self20.processorMap["get_worker_id"] = &idGeneratorProcessorGetWorkerId{handler: handler}
+	self20.processorMap["get_timestamp"] = &idGeneratorProcessorGetTimestamp{handler: handler}
+	self20.processorMap["get_id"] = &idGeneratorProcessorGetId{handler: handler}
+	self20.processorMap["get_datacenter_id"] = &idGeneratorProcessorGetDatacenterId{handler: handler}
+	self20.processorMap["get_scopes"] = &idGeneratorProcessorGetScopes{handler: handler}
+	return self20
 }
 
 func (p *IdGeneratorProcessor) Process(iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -314,12 +372,12 @@ func (p *IdGeneratorProcessor) Process(iprot, oprot thrift.TProtocol) (success b
 	}
 	iprot.Skip(thrift.STRUCT)
 	iprot.ReadMessageEnd()
-	x17 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
+	x21 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
 	oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
-	x17.Write(oprot)
+	x21.Write(oprot)
 	oprot.WriteMessageEnd()
 	oprot.Flush()
-	return false, x17
+	return false, x21
 
 }
 
@@ -478,6 +536,49 @@ func (p *idGeneratorProcessorGetDatacenterId) Process(seqId int32, iprot, oprot 
 		return
 	}
 	if err2 := oprot.WriteMessageBegin("get_datacenter_id", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 := result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 := oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 := oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type idGeneratorProcessorGetScopes struct {
+	handler IdGenerator
+}
+
+func (p *idGeneratorProcessorGetScopes) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := NewGetScopesArgs()
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("get_scopes", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return
+	}
+	iprot.ReadMessageEnd()
+	result := NewGetScopesResult()
+	if result.Success, err = p.handler.GetScopes(); err != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing get_scopes: "+err.Error())
+		oprot.WriteMessageBegin("get_scopes", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return
+	}
+	if err2 := oprot.WriteMessageBegin("get_scopes", thrift.REPLY, seqId); err2 != nil {
 		err = err2
 	}
 	if err2 := result.Write(oprot); err == nil && err2 != nil {
@@ -1079,4 +1180,163 @@ func (p *GetDatacenterIdResult) String() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("GetDatacenterIdResult(%+v)", *p)
+}
+
+type GetScopesArgs struct {
+}
+
+func NewGetScopesArgs() *GetScopesArgs {
+	return &GetScopesArgs{}
+}
+
+func (p *GetScopesArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return fmt.Errorf("%T read error", p)
+	}
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return fmt.Errorf("%T field %d read error: %s", p, fieldId, err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return fmt.Errorf("%T read struct end error: %s", p, err)
+	}
+	return nil
+}
+
+func (p *GetScopesArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("get_scopes_args"); err != nil {
+		return fmt.Errorf("%T write struct begin error: %s", p, err)
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return fmt.Errorf("%T write field stop error: %s", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return fmt.Errorf("%T write struct stop error: %s", err)
+	}
+	return nil
+}
+
+func (p *GetScopesArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GetScopesArgs(%+v)", *p)
+}
+
+type GetScopesResult struct {
+	Success []string `thrift:"success,0"`
+}
+
+func NewGetScopesResult() *GetScopesResult {
+	return &GetScopesResult{}
+}
+
+func (p *GetScopesResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return fmt.Errorf("%T read error", p)
+	}
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return fmt.Errorf("%T field %d read error: %s", p, fieldId, err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return fmt.Errorf("%T read struct end error: %s", p, err)
+	}
+	return nil
+}
+
+func (p *GetScopesResult) readField0(iprot thrift.TProtocol) error {
+	_, size, err := iprot.ReadListBegin()
+	if err != nil {
+		return fmt.Errorf("error reading list being: %s")
+	}
+	p.Success = make([]string, 0, size)
+	for i := 0; i < size; i++ {
+		var _elem22 string
+		if v, err := iprot.ReadString(); err != nil {
+			return fmt.Errorf("error reading field 0: %s")
+		} else {
+			_elem22 = v
+		}
+		p.Success = append(p.Success, _elem22)
+	}
+	if err := iprot.ReadListEnd(); err != nil {
+		return fmt.Errorf("error reading list end: %s")
+	}
+	return nil
+}
+
+func (p *GetScopesResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("get_scopes_result"); err != nil {
+		return fmt.Errorf("%T write struct begin error: %s", p, err)
+	}
+	switch {
+	default:
+		if err := p.writeField0(oprot); err != nil {
+			return err
+		}
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return fmt.Errorf("%T write field stop error: %s", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return fmt.Errorf("%T write struct stop error: %s", err)
+	}
+	return nil
+}
+
+func (p *GetScopesResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.Success != nil {
+		if err := oprot.WriteFieldBegin("success", thrift.LIST, 0); err != nil {
+			return fmt.Errorf("%T write field begin error 0:success: %s", p, err)
+		}
+		if err := oprot.WriteListBegin(thrift.STRING, len(p.Success)); err != nil {
+			return fmt.Errorf("error writing list begin: %s")
+		}
+		for _, v := range p.Success {
+			if err := oprot.WriteString(string(v)); err != nil {
+				return fmt.Errorf("%T. (0) field write error: %s", p)
+			}
+		}
+		if err := oprot.WriteListEnd(); err != nil {
+			return fmt.Errorf("error writing list end: %s")
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return fmt.Errorf("%T write field end error 0:success: %s", p, err)
+		}
+	}
+	return err
+}
+
+func (p *GetScopesResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GetScopesResult(%+v)", *p)
 }

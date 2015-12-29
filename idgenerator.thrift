@@ -5,4 +5,5 @@ service IdGenerator {
   i64 get_timestamp()
   i64 get_id(1:string scope)
   i64 get_datacenter_id()
+  list<string> get_scopes()
 }

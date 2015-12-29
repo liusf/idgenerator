@@ -24,6 +24,7 @@ func Usage() {
 	fmt.Fprintln(os.Stderr, "  i64 get_timestamp()")
 	fmt.Fprintln(os.Stderr, "  i64 get_id(string scope)")
 	fmt.Fprintln(os.Stderr, "  i64 get_datacenter_id()")
+	fmt.Fprintln(os.Stderr, "   get_scopes()")
 	fmt.Fprintln(os.Stderr)
 	os.Exit(0)
 }
@@ -150,6 +151,14 @@ func main() {
 			flag.Usage()
 		}
 		fmt.Print(client.GetDatacenterId())
+		fmt.Print("\n")
+		break
+	case "get_scopes":
+		if flag.NArg()-1 != 0 {
+			fmt.Fprintln(os.Stderr, "GetScopes requires 0 args")
+			flag.Usage()
+		}
+		fmt.Print(client.GetScopes())
 		fmt.Print("\n")
 		break
 	case "":
