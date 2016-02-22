@@ -13,4 +13,14 @@ go install github.com/liusf/idgenerator
 show help:
 ```
 idgenerator -h
+Usage of ./idgenerator:
+  -consul string
+    	check peers with consul server/agent(ip:port,ip:port,...)
+  -dc int
+    	data center id (0-7)
+  -h	show this help info
+  -p int
+    	port to listen to
+  -w int
+    	worker id (0-31)
 ```

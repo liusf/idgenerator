@@ -1,4 +1,5 @@
 .idea
 gen-go/idgenerator/id_generator-remote/id_generator-remote
 idgenerator
+target
 

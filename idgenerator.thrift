@@ -1,9 +1,10 @@
 namespace go idgenerator
+namespace java idgenerator
 
 service IdGenerator {
-  i64 get_worker_id()
-  i64 get_timestamp()
-  i64 get_id(1:string scope)
-  i64 get_datacenter_id()
-  list<string> get_scopes()
+  i64 getWorkerId()
+  i64 getTimestamp()
+  i64 getId(1:string scope)
+  i64 getDatacenterId()
+  list<string> getScopes()
 }
