@@ -1,7 +1,7 @@
 #### ID Generator
 distributed ID generator similar to twitter snowflake: https://github.com/twitter/snowflake
 
-thirft server, using compact protocol. interface definition as [thrift definition](idgenerator.thrift)
+thirft server, using framed binary protocol. interface definition as [thrift definition](idgenerator.thrift)
 
 ##### Installation
 Require Golang environment

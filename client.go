@@ -15,8 +15,9 @@ func newIdGeneratorClient(host string, port int) (timestamp int64, workerId int6
 		fmt.Printf("Error resolving address %s:%d, %v\n", host, port, err)
 		os.Exit(1)
 	}
-	protocolFactory := thrift.NewTCompactProtocolFactory()
-	client := idgenerator.NewIdGeneratorClientFactory(trans, protocolFactory)
+	framedTransport := thrift.NewTFramedTransport(trans)
+	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
+	client := idgenerator.NewIdGeneratorClientFactory(framedTransport, protocolFactory)
 	if err := trans.Open(); err != nil {
 		fmt.Println("Error opening socket to 2", host, ":", port, " ", err)
 		os.Exit(1)

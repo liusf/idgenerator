@@ -39,8 +39,6 @@ func main() {
 		fmt.Println("Sanity check OK")
 	}
 
-	protocolFactory := thrift.NewTCompactProtocolFactory()
-	transportFactory := thrift.NewTBufferedTransportFactory(8192)
 	transport, err := thrift.NewTServerSocket(fmt.Sprintf("0.0.0.0:%d", *port))
 	if err != nil {
 		fmt.Println("error open addr", err)
@@ -52,6 +50,8 @@ func main() {
 		fmt.Println("error starting server: ", err)
 		os.Exit(1)
 	}
+	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
+	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	processor := idgenerator.NewIdGeneratorProcessor(handler)
 	server := thrift.NewTSimpleServer4(processor, transport, transportFactory, protocolFactory)
 	err = server.Serve()
