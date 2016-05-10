@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
   "math"
 	"strings"
@@ -29,7 +27,6 @@ func main() {
 	workerId := flag.Int("w", 0, "worker id (0-31)")
 	datacenterId := flag.Int("dc", 0, "data center id (0-7)")
 	zkServers := flag.String("zk", "", "check and register with zookeepers(ip:port,ip:port,..)")
-//	consulServers := flag.String("consul", "", "check peers with consul server hosts(ip:port,ip:port,...)")
 
 	flag.Parse()
 	if *port <= 0 || *help {
@@ -37,16 +34,10 @@ func main() {
 		os.Exit(1)
 	}
 
-//	if *consulServers != "" {
-//    addrs := getPeerAddrs(*consulServers)
-//    sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
-//		fmt.Println("Sanity check OK")
-//	}
-
 	if *zkServers != "" {
-    addrs := getZkPeerAddrs(*zkServers)
+    addrs, zkConn := getPeerAddrs(*zkServers)
     sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
-    registerService(int64(*workerId), int(*port), *zkServers)
+    registerService(int64(*workerId), int(*port), zkConn)
 		fmt.Println("Sanity check OK")
 	}
 
@@ -74,7 +65,7 @@ func main() {
 	}
 }
 
-func getZkPeerAddrs(zkServers string) []ServiceAddr {
+func getPeerAddrs(zkServers string) ([]ServiceAddr, zk.Conn) {
   c, _, err := zk.Connect(strings.Split(zkServers, ","), time.Second)
   if err != nil {
     fmt.Println("unable to connect to zk servers ", zkServers)
@@ -85,7 +76,7 @@ func getZkPeerAddrs(zkServers string) []ServiceAddr {
     fmt.Println("unable to get children ", zkServers)
     os.Exit(1)
   }
-  var services []ServiceAddr = make([]ServiceAddr, len(children))
+  var services []ServiceAddr = make([]ServiceAddr, 0)
   for _, node := range children {
     content, _, err := c.Get("/service/idgenerators/" + node)
     if err != nil {
@@ -94,10 +85,14 @@ func getZkPeerAddrs(zkServers string) []ServiceAddr {
     }
     var f ZkNode
     err = json.Unmarshal(content, &f)
+    if err != nil {
+      fmt.Println("unmarshal node json failed", err)
+      os.Exit(1)
+    }
     addr := ServiceAddr{f.ServiceEndpoint.Host, f.ServiceEndpoint.Port}
     services = append(services, addr)
   }
-  return services
+  return services, *c
 }
 
 type ServiceEndpoint struct {
@@ -127,13 +122,16 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []ServiceAddr) {
 		fmt.Println("No peers")
 		return
 	}
-	var sumTimestamp int64
+	var sumTimestamp int64 = 0
 	for _, addr := range addrs {
-		timestamp, peerDatacenterId := newIdGeneratorClient(addr.ServiceAddress, addr.ServicePort)
+		timestamp, peerDatacenterId, peerWorkerId := newIdGeneratorClient(addr.ServiceAddress, addr.ServicePort)
 		if datacenterId != peerDatacenterId {
 			fmt.Printf("Worker at %s has datacenter_id %d, but ours is %d", addr, peerDatacenterId, datacenterId)
 			os.Exit(1)
-		} else {
+		} else if workerId == peerWorkerId {
+      fmt.Println("Duplicated workerId", workerId)
+      os.Exit(1)
+    } else {
 			sumTimestamp += timestamp
 		}
 	}
@@ -145,40 +143,7 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []ServiceAddr) {
 	}
 }
 
-func getPeerAddrs(consulServers string) []ServiceAddr {
-	servers := strings.Split(consulServers, ",")
-	var services []ServiceAddr
-	for _, server := range servers {
-		serviceUrl := fmt.Sprintf("http://%s/v1/catalog/service/idgenerator", server)
-		resp, err := http.Get(serviceUrl)
-		if err != nil {
-			fmt.Println("get peers address error ", serviceUrl, err)
-			continue
-		} else {
-			bytes, err := ioutil.ReadAll(resp.Body)
-			resp.Body.Close()
-			if err != nil {
-				fmt.Println("get service content error ", serviceUrl, err)
-				continue
-			} else {
-				if err := json.Unmarshal(bytes, &services); err != nil {
-					fmt.Println("service definition parse error", err)
-					continue
-				} else {
-					return services
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func registerService(workerId int64, port int, zkServers string) {
-  c, _, err := zk.Connect(strings.Split(zkServers, ","), time.Second)
-  if err != nil {
-    fmt.Println("unable to connect to zk servers ", zkServers)
-    os.Exit(1)
-  }
+func registerService(workerId int64, port int, zkConn zk.Conn) {
   host := getHostname()
   var s struct{}
   var endpoint = ZkNode{ServiceEndpoint:ServiceEndpoint{Host:host, Port:port}, AdditionalEndpoints:s, Status:"ALIVE", Shard:0}
@@ -188,8 +153,7 @@ func registerService(workerId int64, port int, zkServers string) {
     os.Exit(1)
   }
   path := fmt.Sprintf("/service/idgenerators/member_%d", workerId)
-  fmt.Println("path = " + path)
-  _, err = c.Create(path, bytes, zk.FlagEphemeral, zk.WorldACL(zk.PermAll))
+  _, err = zkConn.Create(path, bytes, zk.FlagEphemeral, zk.WorldACL(zk.PermAll))
   if err != nil {
     fmt.Println("reigster with zookeeper failed", err)
     os.Exit(1)
