@@ -463,8 +463,8 @@ func (p *IdGeneratorProcessor) Process(iprot, oprot thrift.TProtocol) (success b
 	x11.Write(oprot)
 	oprot.WriteMessageEnd()
 	oprot.Flush()
-	return false, x11
-
+	// return false, x11
+	return true, x11
 }
 
 type idGeneratorProcessorGetWorkerId struct {

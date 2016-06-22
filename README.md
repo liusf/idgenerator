@@ -64,3 +64,25 @@ IdGenerator.FutureIface idGenerator = Thrift.client().
 Long id = idGenerator.getId("ORDER").get();
     
 ```
+##### Note
+重新从thrift生成go源码后,需要修改如下函数代码:
+```
+func (p *IdGeneratorProcessor) Process(iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	name, _, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return false, err
+	}
+	if processor, ok := p.GetProcessorFunction(name); ok {
+		return processor.Process(seqId, iprot, oprot)
+	}
+	iprot.Skip(thrift.STRUCT)
+	iprot.ReadMessageEnd()
+	x11 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
+	oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
+	x11.Write(oprot)
+	oprot.WriteMessageEnd()
+	oprot.Flush()
+	// 原来是这样: return false, x11
+	return true, x11 // 修改成这样
+}
+```
