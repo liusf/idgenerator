@@ -65,7 +65,7 @@ Long id = idGenerator.getId("ORDER").get();
     
 ```
 ##### Note
-重新从thrift生成go源码后,需要修改如下函数代码:
+重新从thrift生成go源码后,需要修改**idgenerator.go**文件如下函数代码:
 ```
 func (p *IdGeneratorProcessor) Process(iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
 	name, _, seqId, err := iprot.ReadMessageBegin()
