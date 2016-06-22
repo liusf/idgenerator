@@ -68,19 +68,22 @@ func main() {
 func getPeerAddrs(zkServers string) ([]ServiceAddr, zk.Conn) {
   c, _, err := zk.Connect(strings.Split(zkServers, ","), time.Second)
   if err != nil {
-    fmt.Println("unable to connect to zk servers ", zkServers)
+    fmt.Println("unable to connect to zk servers", zkServers, err)
     os.Exit(1)
   }
+
+	createPathIfNecessary(c)
+
   children, _, err := c.Children("/service/idgenerators")
   if err != nil {
-    fmt.Println("unable to get children ", zkServers)
+    fmt.Println("unable to get children,", zkServers, err)
     os.Exit(1)
   }
   var services []ServiceAddr = make([]ServiceAddr, 0)
   for _, node := range children {
     content, _, err := c.Get("/service/idgenerators/" + node)
     if err != nil {
-      fmt.Println("unable to connect to node ", node)
+      fmt.Println("unable to connect to node", node, err)
       os.Exit(1)
     }
     var f ZkNode
@@ -93,6 +96,26 @@ func getPeerAddrs(zkServers string) ([]ServiceAddr, zk.Conn) {
     services = append(services, addr)
   }
   return services, *c
+}
+
+func createPathIfNecessary(c *zk.Conn)  {
+	createPath(c, "/service")
+	createPath(c, "/service/idgenerators")
+}
+
+func createPath(c *zk.Conn, path string)  {
+	b, _, err := c.Exists(path)
+	if err != nil {
+		fmt.Printf("check zk path %v failed, %v", path, err)
+		os.Exit(1)
+	}
+	if !b {
+		_, err = c.Create(path, nil, 0, zk.WorldACL(zk.PermAll))
+		if err != nil {
+			fmt.Printf("create zk path %v failed, %v", path, err)
+			os.Exit(1)
+		}
+	}
 }
 
 type ServiceEndpoint struct {
