@@ -1,17 +1,16 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
   "math"
 	"strings"
-  "time"
+	"strconv"
 
-  "git.apache.org/thrift.git/lib/go/thrift"
+	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/liusf/idgenerator/gen-go/idgenerator"
-	"github.com/samuel/go-zookeeper/zk"
+	"github.com/strava/go.serversets"
 )
 
 func Usage() {
@@ -35,9 +34,13 @@ func main() {
 	}
 
 	if *zkServers != "" {
-    addrs, zkConn := getPeerAddrs(*zkServers)
+		serversets.BaseDirectory = "/service"
+		serversets.BaseZnodePath = func(environment serversets.Environment, service string) string {
+			return serversets.BaseDirectory + "/" + service
+		}
+    addrs, serverSet := getPeerAddrs(*zkServers)
     sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
-    registerService(int64(*workerId), int(*port), zkConn)
+    registerService(int64(*workerId), int(*port), serverSet)
 		fmt.Println("Sanity check OK")
 	}
 
@@ -65,57 +68,16 @@ func main() {
 	}
 }
 
-func getPeerAddrs(zkServers string) ([]ServiceAddr, zk.Conn) {
-  c, _, err := zk.Connect(strings.Split(zkServers, ","), time.Second)
-  if err != nil {
-    fmt.Println("unable to connect to zk servers", zkServers, err)
-    os.Exit(1)
-  }
-
-	createPathIfNecessary(c)
-
-  children, _, err := c.Children("/service/idgenerators")
-  if err != nil {
-    fmt.Println("unable to get children,", zkServers, err)
-    os.Exit(1)
-  }
-  var services []ServiceAddr = make([]ServiceAddr, 0)
-  for _, node := range children {
-    content, _, err := c.Get("/service/idgenerators/" + node)
-    if err != nil {
-      fmt.Println("unable to connect to node", node, err)
-      os.Exit(1)
-    }
-    var f ZkNode
-    err = json.Unmarshal(content, &f)
-    if err != nil {
-      fmt.Println("unmarshal node json failed", err)
-      os.Exit(1)
-    }
-    addr := ServiceAddr{f.ServiceEndpoint.Host, f.ServiceEndpoint.Port}
-    services = append(services, addr)
-  }
-  return services, *c
-}
-
-func createPathIfNecessary(c *zk.Conn)  {
-	createPath(c, "/service")
-	createPath(c, "/service/idgenerators")
-}
-
-func createPath(c *zk.Conn, path string)  {
-	b, _, err := c.Exists(path)
+func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
+	serverSet := serversets.New(serversets.Production, "idgenerators", strings.Split(zkServers, ","))
+	watch, err := serverSet.Watch()
 	if err != nil {
-		fmt.Printf("check zk path %v failed, %v", path, err)
+		fmt.Println("unable to connect to zk servers", zkServers, err)
 		os.Exit(1)
 	}
-	if !b {
-		_, err = c.Create(path, nil, 0, zk.WorldACL(zk.PermAll))
-		if err != nil {
-			fmt.Printf("create zk path %v failed, %v", path, err)
-			os.Exit(1)
-		}
-	}
+	endpoints := watch.Endpoints()
+	fmt.Println("endpoints = ", endpoints)
+	return endpoints, serverSet
 }
 
 type ServiceEndpoint struct {
@@ -135,7 +97,7 @@ type ServiceAddr struct {
 	ServicePort    int
 }
 
-func sanityCheck(workerId int64, datacenterId int64, addrs []ServiceAddr) {
+func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
 	// check peers, not duplicated datacentId & workerId, not too much time shift
 	if addrs == nil {
 		fmt.Println("Unable to resolve peers address", addrs)
@@ -147,7 +109,13 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []ServiceAddr) {
 	}
 	var sumTimestamp int64 = 0
 	for _, addr := range addrs {
-		timestamp, peerDatacenterId, peerWorkerId := newIdGeneratorClient(addr.ServiceAddress, addr.ServicePort)
+		pair := strings.Split(addr, ":")
+		port, err := strconv.Atoi(pair[1])
+		if err != nil {
+			fmt.Println("port error")
+			continue
+		}
+		timestamp, peerDatacenterId, peerWorkerId := newIdGeneratorClient(pair[0], port)
 		if datacenterId != peerDatacenterId {
 			fmt.Printf("Worker at %s has datacenter_id %d, but ours is %d", addr, peerDatacenterId, datacenterId)
 			os.Exit(1)
@@ -166,21 +134,13 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []ServiceAddr) {
 	}
 }
 
-func registerService(workerId int64, port int, zkConn zk.Conn) {
+func registerService(workerId int64, port int, serverSet *serversets.ServerSet) {
   host := getHostname()
-  var s struct{}
-  var endpoint = ZkNode{ServiceEndpoint:ServiceEndpoint{Host:host, Port:port}, AdditionalEndpoints:s, Status:"ALIVE", Shard:0}
-  bytes, err := json.Marshal(endpoint)
-  if err != nil {
-    fmt.Println("json marshal failed")
-    os.Exit(1)
-  }
-  path := fmt.Sprintf("/service/idgenerators/member_%d", workerId)
-  _, err = zkConn.Create(path, bytes, zk.FlagEphemeral, zk.WorldACL(zk.PermAll))
-  if err != nil {
-    fmt.Println("reigster with zookeeper failed", err)
-    os.Exit(1)
-  }
+	_, err := serverSet.RegisterEndpoint(host, port, nil)
+	if err != nil {
+		fmt.Println("cannot register endpoint", err)
+		os.Exit(1)
+	}
 }
 
 func getHostname() string {
