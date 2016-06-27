@@ -80,23 +80,6 @@ func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
 	return endpoints, serverSet
 }
 
-type ServiceEndpoint struct {
-  Host string `json:"host"`
-  Port int    `json:"port"`
-}
-
-type ZkNode struct {
-  ServiceEndpoint ServiceEndpoint `json:"serviceEndpoint"`
-  AdditionalEndpoints interface{} `json:"additionalEndpoints,omitempty"`
-  Status string                   `json:"status"`
-  Shard int                       `json:"shard"`
-}
-
-type ServiceAddr struct {
-	ServiceAddress string
-	ServicePort    int
-}
-
 func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
 	// check peers, not duplicated datacentId & workerId, not too much time shift
 	if addrs == nil {
