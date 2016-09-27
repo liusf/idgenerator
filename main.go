@@ -69,6 +69,11 @@ func main() {
 }
 
 func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in watch", r)
+		}
+	}()
 	serverSet := serversets.New(serversets.Production, "idgenerators", strings.Split(zkServers, ","))
 	watch, err := serverSet.Watch()
 	if err != nil {
@@ -81,7 +86,7 @@ func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
 }
 
 func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
-	// check peers, not duplicated datacentId & workerId, not too much time shift
+	// check peers, no duplicated datacenterId & workerId, no too much time shift
 	if addrs == nil {
 		fmt.Println("Unable to resolve peers address", addrs)
 		os.Exit(1)
