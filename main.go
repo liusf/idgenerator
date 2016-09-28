@@ -80,6 +80,7 @@ func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
 		fmt.Println("unable to connect to zk servers", zkServers, err)
 		os.Exit(1)
 	}
+  defer watch.Close()
 	endpoints := watch.Endpoints()
 	fmt.Println("endpoints = ", endpoints)
 	return endpoints, serverSet
