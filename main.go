@@ -126,10 +126,7 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
 
 func registerService(port int, serverSet *serversets.ServerSet) {
 	host := getLocalIp()
-	pingFunction := func() error {
-		return nil
-	}
-	_, err := serverSet.RegisterEndpoint(host, port, pingFunction())
+	_, err := serverSet.RegisterEndpoint(host, port, nil)
 	if err != nil {
 		fmt.Println("cannot register endpoint", err)
 		os.Exit(1)
