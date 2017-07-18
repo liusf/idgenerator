@@ -4,7 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
-  "math"
+	"net"
+	"math"
 	"strings"
 	"strconv"
 
@@ -40,7 +41,7 @@ func main() {
 		}
     addrs, serverSet := getPeerAddrs(*zkServers)
     sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
-    registerService(int64(*workerId), int(*port), serverSet)
+    registerService(int(*port), serverSet)
 		fmt.Println("Sanity check OK")
 	}
 
@@ -123,20 +124,45 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
 	}
 }
 
-func registerService(workerId int64, port int, serverSet *serversets.ServerSet) {
-  host := getHostname()
-	_, err := serverSet.RegisterEndpoint(host, port, nil)
+func registerService(port int, serverSet *serversets.ServerSet) {
+	host := getLocalIp()
+	pingFunction := func() error {
+		return nil
+	}
+	_, err := serverSet.RegisterEndpoint(host, port, pingFunction())
 	if err != nil {
 		fmt.Println("cannot register endpoint", err)
 		os.Exit(1)
 	}
 }
 
-func getHostname() string {
-  host, err := os.Hostname()
-  if err != nil {
-    fmt.Println("cannot get local IPs")
-    os.Exit(1)
-  }
-  return host
+func getLocalIp() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		fmt.Println("cannot get local IP", err)
+		os.Exit(1)
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		// handle err
+		if err != nil {
+			fmt.Println("cannot get local IP", err)
+			os.Exit(1)
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if strings.HasPrefix(ip.String(), "172.") {
+				return ip.String()
+			}
+		}
+	}
+	fmt.Println("cannot get local IP")
+	os.Exit(1)
+	return ""
 }

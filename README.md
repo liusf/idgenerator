@@ -6,7 +6,11 @@ thirft server, using framed binary protocol. interface definition as [thrift def
 ##### Installation
 Require Golang environment
 ```
-go get git.apache.org/thrift.git/lib/go/thrift
+cd $GOPATH/src
+mkdir git.apache.org
+cd git.apache.org
+git clone https://github.com/apache/thrift thrift.git
+go get github.com/liusf/idgenerator
 go install github.com/liusf/idgenerator
 ```
 ##### Usage
