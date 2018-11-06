@@ -10,6 +10,9 @@ cd $GOPATH/src
 mkdir git.apache.org
 cd git.apache.org
 git clone https://github.com/apache/thrift thrift.git
+cd thrift.git
+git checkout 0.10.0
+cd ..
 go get github.com/liusf/idgenerator
 go install github.com/liusf/idgenerator
 ```
