@@ -3,11 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
-	"net"
 	"math"
-	"strings"
+	"net"
+	"os"
 	"strconv"
+	"strings"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/liusf/idgenerator/gen-go/idgenerator"
@@ -39,9 +39,9 @@ func main() {
 		serversets.BaseZnodePath = func(environment serversets.Environment, service string) string {
 			return serversets.BaseDirectory + "/" + service
 		}
-    addrs, serverSet := getPeerAddrs(*zkServers)
-    sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
-    registerService(int(*port), serverSet)
+		addrs, serverSet := getPeerAddrs(*zkServers)
+		sanityCheck(int64(*workerId), int64(*datacenterId), addrs)
+		registerService(int(*port), serverSet)
 		fmt.Println("Sanity check OK")
 	}
 
@@ -63,7 +63,7 @@ func main() {
 	err = server.Serve()
 	if err != nil {
 		fmt.Println("error running server: ", err)
-    os.Exit(1)
+		os.Exit(1)
 	} else {
 		fmt.Println("running id generator server")
 	}
@@ -81,7 +81,7 @@ func getPeerAddrs(zkServers string) ([]string, *serversets.ServerSet) {
 		fmt.Println("unable to connect to zk servers", zkServers, err)
 		os.Exit(1)
 	}
-  defer watch.Close()
+	defer watch.Close()
 	endpoints := watch.Endpoints()
 	fmt.Println("endpoints = ", endpoints)
 	return endpoints, serverSet
@@ -110,9 +110,9 @@ func sanityCheck(workerId int64, datacenterId int64, addrs []string) {
 			fmt.Printf("Worker at %s has datacenter_id %d, but ours is %d", addr, peerDatacenterId, datacenterId)
 			os.Exit(1)
 		} else if workerId == peerWorkerId {
-      fmt.Println("Duplicated workerId", workerId)
-      os.Exit(1)
-    } else {
+			fmt.Println("Duplicated workerId", workerId)
+			os.Exit(1)
+		} else {
 			sumTimestamp += timestamp
 		}
 	}
@@ -136,14 +136,14 @@ func registerService(port int, serverSet *serversets.ServerSet) {
 func getLocalIp() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		fmt.Println("cannot get local IP", err)
+		fmt.Println("cannot get local IP[1]", err)
 		os.Exit(1)
 	}
 	for _, i := range ifaces {
 		addrs, err := i.Addrs()
 		// handle err
 		if err != nil {
-			fmt.Println("cannot get local IP", err)
+			fmt.Println("cannot get local IP[2]", err)
 			os.Exit(1)
 		}
 		for _, addr := range addrs {
@@ -154,12 +154,15 @@ func getLocalIp() string {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			if strings.HasPrefix(ip.String(), "172.") {
+			if strings.HasPrefix(ip.String(), "172.") ||
+				strings.HasPrefix(ip.String(), "192.168.") ||
+				strings.HasPrefix(ip.String(), "10.") {
 				return ip.String()
 			}
+			fmt.Printf("%s", ip.String())
 		}
 	}
-	fmt.Println("cannot get local IP")
+	fmt.Println("cannot get local IP[3]")
 	os.Exit(1)
 	return ""
 }

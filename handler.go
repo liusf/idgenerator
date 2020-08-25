@@ -49,7 +49,7 @@ func (p *IdGeneratorHandler) GetDatacenterId() (r int64, err error) {
 	return p.datacenterId, nil
 }
 
-func (p *IdGeneratorHandler) GetScopes() (r []string, err error)  {
+func (p *IdGeneratorHandler) GetScopes() (r []string, err error) {
 	p.mux.Lock()
 	keys := make([]string, len(p.generators))
 	for d := range p.generators {
