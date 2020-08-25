@@ -24,7 +24,7 @@ func main() {
 	flag.Usage = Usage
 	port := flag.Int("p", 0, "port to listen to")
 	help := flag.Bool("h", false, "show this help info")
-	workerId := flag.Int("w", 0, "worker id (0-31)")
+	workerId := flag.Int("w", 0, "worker id (0-15)")
 	datacenterId := flag.Int("dc", 0, "data center id (0-7)")
 	zkServers := flag.String("zk", "", "check and register with zookeepers(ip:port,ip:port,..)")
 
