@@ -157,7 +157,7 @@ func getLocalIp() string {
 			if strings.HasPrefix(ip.String(), "172.") ||
 				strings.HasPrefix(ip.String(), "192.168.") ||
 				strings.HasPrefix(ip.String(), "10.") {
-				fmt.Printf("register local IP %s", ip.String())
+				fmt.Println("register local IP %s", ip.String())
 				return ip.String()
 			}
 		}
